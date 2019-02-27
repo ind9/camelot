@@ -8,7 +8,7 @@ dist/
 .eggs/
 .coverage
 coverage.xml
-
+.idea/
 .pytest_cache/
 _build/
 

@@ -194,6 +194,40 @@ class Lattice(BaseParser):
             pass
         null.close()
 
+    @staticmethod
+    def _group_rows(text, row_tol=2):
+        """Groups PDFMiner text objects into rows vertically
+        within a tolerance.
+
+        Parameters
+        ----------
+        text : list
+            List of PDFMiner text objects.
+        row_tol : int, optional (default: 2)
+
+        Returns
+        -------
+        rows : list
+            Two-dimensional list of text objects grouped into rows.
+
+        """
+        row_y = 0
+        rows = []
+        temp = []
+        for t in text:
+            # is checking for upright necessary?
+            # if t.get_text().strip() and all([obj.upright for obj in t._objs if
+            # type(obj) is LTChar]):
+            if t.get_text().strip():
+                if not np.isclose(row_y, t.y0, atol=row_tol):
+                    rows.append(sorted(temp, key=lambda t: t.x0))
+                    temp = []
+                    row_y = t.y0
+                temp.append(t)
+        rows.append(sorted(temp, key=lambda t: t.x0))
+        __ = rows.pop(0)  # TODO: hacky
+        return rows
+
     def _generate_table_bbox(self):
         def scale_areas(areas):
             scaled_areas = []
@@ -352,12 +386,27 @@ class Lattice(BaseParser):
         self._generate_table_bbox()
 
         _tables = []
+        p_w = self.pdf_width
+        p_h = self.pdf_height
+        result = []
         # sort tables based on y-coord
         for table_idx, tk in enumerate(sorted(
                 self.table_bbox.keys(), key=lambda x: x[1], reverse=True)):
+            (x1, y1, x2, y2) = tk
             cols, rows, v_s, h_s = self._generate_columns_and_rows(table_idx, tk)
             table = self._generate_table(table_idx, cols, rows, v_s=v_s, h_s=h_s)
             table._bbox = tk
             _tables.append(table)
-
-        return _tables
+            bbox = text_in_bbox((x1, y2, p_w, p_h), self.horizontal_text)
+            bbox.sort(key=lambda x: (-x.y0, x.x0))
+            bbox = self._group_rows(bbox, 0.0)
+            text_line_list = [' '.join([b.get_text().strip() for b in i]) for i in bbox]
+            result.append('\n'.join(text_line_list))
+            result.append(table.df)
+            p_h = y1
+        bbox = text_in_bbox((x1, 0.0, p_w, p_h), self.horizontal_text)
+        bbox.sort(key=lambda x: (-x.y0, x.x0))
+        bbox = self._group_rows(bbox, 0.0)
+        text_line_list = [' '.join([b.get_text().strip() for b in i]) for i in bbox]
+        result.append('\n'.join(text_line_list))
+        return result

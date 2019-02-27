@@ -680,7 +680,7 @@ def get_page_layout(filename, char_margin=1.0, line_margin=0.5, word_margin=0.1,
         laparams = LAParams(char_margin=char_margin,
                             line_margin=line_margin,
                             word_margin=word_margin,
-                            detect_vertical=detect_vertical,
+                            detect_vertical=False,
                             all_texts=all_texts)
         rsrcmgr = PDFResourceManager()
         device = PDFPageAggregator(rsrcmgr, laparams=laparams)

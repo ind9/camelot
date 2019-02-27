@@ -4,6 +4,7 @@ import warnings
 
 from .handlers import PDFHandler
 from .utils import validate_input, remove_extra
+from .models import Result
 
 
 def read_pdf(filepath, pages='1', password=None, flavor='lattice',
@@ -104,4 +105,4 @@ def read_pdf(filepath, pages='1', password=None, flavor='lattice',
         kwargs = remove_extra(kwargs, flavor=flavor)
         tables = p.parse(flavor=flavor, suppress_stdout=suppress_stdout,
                          layout_kwargs=layout_kwargs, **kwargs)
-        return tables
+        return Result(tables)
