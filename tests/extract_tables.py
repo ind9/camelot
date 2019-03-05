@@ -7,8 +7,8 @@ outputs = [
              table_areas=["171.58060681818182,535.4643457792209,294.29658625541134,12.863536796536778"],
              layout_kwargs={'char_margin': 0.1}
              ),
-    read_pdf('files/sample_files/table4.pdf', pages='all', flavor='lattice')
+    read_pdf('files/sample_files/table4.pdf', pages='all', flag_size=True, shift_text=[])
     ]
 
 for output in outputs:
-    print(output)
+    print(output.to_html())

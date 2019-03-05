@@ -389,6 +389,7 @@ class Lattice(BaseParser):
         p_w = self.pdf_width
         p_h = self.pdf_height
         result = []
+        x1 = 0.0
         # sort tables based on y-coord
         for table_idx, tk in enumerate(sorted(
                 self.table_bbox.keys(), key=lambda x: x[1], reverse=True)):
