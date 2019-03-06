@@ -21,11 +21,13 @@ class Result(object):
                 result = result + '\n' + i
         return result
 
-    def convert_first_row_to_header(self, df):
+    @staticmethod
+    def convert_first_row_to_header(df):
         headers = df.iloc[0]
         return pd.DataFrame(df.values[1:], columns=headers)
 
-    def create_df_html(self, df):
+    @staticmethod
+    def create_df_html(df):
         # TODO: check whether the first row is the header before converting it to header,
         #  once implemented, change header=True in to_html
         # df = self.convert_first_row_to_header(df)
@@ -38,7 +40,8 @@ class Result(object):
         else:
             return ''
 
-    def window(self, seq, n=2):
+    @staticmethod
+    def window(seq, n=2):
         it = iter(seq)
         result = tuple(islice(it, n))
         if len(result) == n:
@@ -57,7 +60,7 @@ class Result(object):
         for index in self.window(split_column_indices):
             start = list(index)[0]
             end = list(index)[1]
-            dfs.append(df.iloc[:, start+1:end])
+            dfs.append(df.iloc[:, start + 1:end])
         return dfs
 
     # TODO: Replicate header across all sub tables if the first row is a header
@@ -80,9 +83,9 @@ class Result(object):
         for index in self.window(split_rows_indices):
             start = list(index)[0]
             end = list(index)[1]
-            if df.iloc[start:start+1].shape[0] > 0:
-                dfs.append(df.iloc[start:start+1].iat[0, 0])
-            dfs.append(df.iloc[start+1:end])
+            if df.iloc[start:start + 1].shape[0] > 0:
+                dfs.append(df.iloc[start:start + 1].iat[0, 0])
+            dfs.append(df.iloc[start + 1:end])
 
         return dfs
 
@@ -93,14 +96,32 @@ class Result(object):
                 dfs.append(j)
         return dfs
 
+    @staticmethod
+    def is_header(line, max_length):
+        return len(line) > 0 and not line.startswith(' ') and line[0].isupper() and len(line) < max_length / 4
+
+    def generate_paragraphs(self, data):
+        lines = data.split('\n')
+        sliding = list(self.window(lines, 2))
+        data_list_with_length = map(lambda x: (len(x), x), lines)
+        max_length = sorted(data_list_with_length, key=lambda x: -1 * x[0])[0][0]
+        output = lines[0]
+        for (i, j) in sliding:
+            if (i.endswith('.') and (len(j) == 0 or j[0].isupper())) or j.startswith(u'\u2022')\
+                    or self.is_header(i, max_length) or self.is_header(j, max_length):
+                output = output + '\n' + j
+            else:
+                output = output + ' ' + j
+        return output
+
     def to_html_util(self, data):
         html = ''
         if isinstance(data, pd.DataFrame):
             html = html + self.create_df_html(data)
         else:
-            lines = data.split('\n')
-            for line in lines:
-                html = html + '<p>' + line + '</p>'
+            paragraphs = self.generate_paragraphs(data)
+            for paragraph in paragraphs.split('\n'):
+                html = html + '<p>' + paragraph + '</p>'
         return html
 
     def to_html(self):
