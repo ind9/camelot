@@ -26,13 +26,17 @@ class Result(object):
         return pd.DataFrame(df.values[1:], columns=headers)
 
     def create_df_html(self, df):
-        # TODO check whether the first row is the header before converting it to header, once implemented, change header=True in to_html
+        # TODO: check whether the first row is the header before converting it to header,
+        #  once implemented, change header=True in to_html
         # df = self.convert_first_row_to_header(df)
-        str_io = io.StringIO()
-        df = df.applymap(lambda x: x.replace("\n", '<br>'))
-        df.to_html(buf=str_io, index=False, header=False, classes='table')
-        html_str = str_io.getvalue()
-        return su.unescape(html_str)
+        if df.shape[0] > 0:
+            str_io = io.StringIO()
+            df = df.applymap(lambda x: x.replace('\n', ''))
+            df.to_html(buf=str_io, index=False, header=False, classes='table')
+            html_str = str_io.getvalue()
+            return su.unescape(html_str)
+        else:
+            return ''
 
     def window(self, seq, n=2):
         it = iter(seq)
@@ -43,7 +47,7 @@ class Result(object):
             result = result[1:] + (elem,)
             yield result
 
-    def split_tables(self, df):
+    def split_tables_vertically(self, df):
         dfs = []
         split_column_indices = [-1]
         for col in df.columns:
@@ -56,14 +60,55 @@ class Result(object):
             dfs.append(df.iloc[:, start+1:end])
         return dfs
 
+    # TODO: Replicate header across all sub tables if the first row is a header
+    def split_tables_horizontally(self, df):
+        nr_of_cols = []
+        for row in df.iterrows():
+            index, data = row
+            nr_of_cols.append(len(list(filter(lambda x: x != '', data))))
+
+        split_rows_indices = [-1]
+
+        for row in df.iterrows():
+            index, data = row
+            if len(list(filter(lambda x: x != '', data))) == 1:
+                split_rows_indices.append(index)
+
+        split_rows_indices.append(df.shape[0])
+
+        dfs = []
+        for index in self.window(split_rows_indices):
+            start = list(index)[0]
+            end = list(index)[1]
+            if df.iloc[start:start+1].shape[0] > 0:
+                dfs.append(df.iloc[start:start+1].iat[0, 0])
+            dfs.append(df.iloc[start+1:end])
+
+        return dfs
+
+    def split_tables(self, data):
+        dfs = []
+        for i in self.split_tables_vertically(data):
+            for j in self.split_tables_horizontally(i):
+                dfs.append(j)
+        return dfs
+
+    def to_html_util(self, data):
+        html = ''
+        if isinstance(data, pd.DataFrame):
+            html = html + self.create_df_html(data)
+        else:
+            lines = data.split('\n')
+            for line in lines:
+                html = html + '<p>' + line + '</p>'
+        return html
+
     def to_html(self):
         html = ''
         for i in self.output:
             if isinstance(i, pd.DataFrame):
                 for df in self.split_tables(i):
-                    html = html + self.create_df_html(df)
+                    html = html + self.to_html_util(df)
             else:
-                lines = i.split('\n')
-                for line in lines:
-                    html = html + '<p>' + line + '</p>'
+                html = html + self.to_html_util(i)
         return html
