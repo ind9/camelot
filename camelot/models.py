@@ -139,17 +139,17 @@ class Result(object):
 
                 data_df = data_df.dropna(axis=1, how='all')
 
-                a = data_df.values
-                b = []
-                for i in a:
-                    c = []
+                df_values = data_df.values
+                new_df = []
+                for i in df_values:
+                    new_row = []
                     for j in i:
                         if j == '':
                             j = float('nan')
-                        c.append(j)
-                    b.append(c)
+                        new_row.append(j)
+                    new_df.append(new_row)
 
-                data_df = pd.DataFrame(b).dropna(axis=1, how='all')
+                data_df = pd.DataFrame(new_df).dropna(axis=1, how='all')
 
                 first_row = list(data_df.iloc[0])
                 if self.is_header(first_row) and len(list(filter(lambda x: x == '', list(first_row)))) == 0:
