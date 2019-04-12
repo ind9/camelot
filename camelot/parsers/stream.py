@@ -403,7 +403,6 @@ class Stream(BaseParser):
         return table
 
     def extract_tables(self, filename, suppress_stdout=False, layout_kwargs={}):
-        pd.set_option('display.max_colwidth', -1)
         self._generate_layout(filename, layout_kwargs)
         if not suppress_stdout:
             logger.info('Processing {}'.format(os.path.basename(self.rootname)))
@@ -420,29 +419,12 @@ class Stream(BaseParser):
         self._generate_table_bbox()
 
         _tables = []
-        p_w = self.pdf_width
-        p_h = self.pdf_height
-        result = []
         # sort tables based on y-coord
-        # for table_idx, tk in enumerate(sorted(
-        #         self.table_bbox.keys(), key=lambda x: x[1], reverse=True)):
         for table_idx, tk in enumerate(sorted(
                 self.table_bbox.keys(), key=lambda x: x[1], reverse=True)):
-            (x1, y1, x2, y2) = tk
             cols, rows = self._generate_columns_and_rows(table_idx, tk)
             table = self._generate_table(table_idx, cols, rows)
             table._bbox = tk
             _tables.append(table)
-            bbox = text_in_bbox((x1, y2, p_w, p_h), self.horizontal_text)
-            bbox.sort(key=lambda x: (-x.y0, x.x0))
-            bbox = self._group_rows(bbox, 0.0)
-            text_line_list = [' '.join([b.get_text().strip() for b in i]) for i in bbox]
-            result.append('\n'.join(text_line_list))
-            result.append(table.df)
-            p_h = y1
-        bbox = text_in_bbox((x1, 0.0, p_w, p_h), self.horizontal_text)
-        bbox.sort(key=lambda x: (-x.y0, x.x0))
-        bbox = self._group_rows(bbox, 0.0)
-        text_line_list = [' '.join([b.get_text().strip() for b in i]) for i in bbox]
-        result.append('\n'.join(text_line_list))
-        return result
+
+        return _tables

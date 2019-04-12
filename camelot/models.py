@@ -3,13 +3,30 @@ from tabulate import tabulate
 import io
 from itertools import islice
 from xml.sax import saxutils as su
+import re
+import json
 
 pd.set_option('display.max_colwidth', -1)
+
+
+class Output(object):
+    def __init__(self, jurisdiction, tax_type, tax_rate, effective_date):
+        self.jurisdiction = jurisdiction
+        self.tax_type = tax_type
+        self.tax_rate = tax_rate
+        self.effective_date = effective_date
 
 
 class Result(object):
     def __init__(self, output):
         self.output = output
+        mapping = {
+            'jurisdiction': 'county|city|municipality|district|spd|boundaries',
+            'taxrate': 'rate'
+        }
+        self.regexes = {}
+        for r in mapping:
+            self.regexes[r] = re.compile(mapping[r])
         pass
 
     def __str__(self):
@@ -21,20 +38,45 @@ class Result(object):
                 result = result + '\n' + i
         return result
 
+    def regex_entity(self, value, regexes):
+        found = False
+        for r in regexes:
+            match = regexes[r].findall(str(value).lower())
+            if (len(match) > 0):
+                found = True
+                ans = r
+        if found:
+            return ans
+        else:
+            return ''
+
     def is_header(self, columns):
-        pass
+        columns = list(map(lambda x: ' '.join(str(x).replace('\n', '<br>').split()), columns))
+        c = 0
+        for j in columns:
+            if (self.regex_entity(j, self.regexes) != ''):
+                c = c + 1
+        if(c >= 2):
+            return True
+        return False
+
+    def header(self, columns):
+        columns = list(map(lambda x: ' '.join(str(x).replace('\n', '<br>').split()), columns))
+        return list(map(lambda j: (j, self.regex_entity(j, self.regexes)), columns))
 
     def convert_first_row_to_header(self, df):
-        headers = df.iloc[0]
-        return pd.DataFrame(df.values[1:], columns=headers)
+        if(df.shape[0] > 0):
+            headers = df.iloc[0]
+            return pd.DataFrame(df.values[1:], columns=headers)
+        return df
 
-    def create_df_html(self, df, header = False):
+    def create_df_html(self, df, header):
         # TODO: check whether the first row is the header before converting it to header,
         #  once implemented, change header=True in to_html
         # df = self.convert_first_row_to_header(df)
         if df.shape[0] > 0:
             str_io = io.StringIO()
-            df = df.applymap(lambda x: x.replace('\n', ''))
+            df = df.applymap(lambda x: str(x).replace('\n', '<br>'))
             df.to_html(buf=str_io, index=False, header=header, classes='table')
             html_str = str_io.getvalue()
             return su.unescape(html_str)
@@ -66,8 +108,8 @@ class Result(object):
 
     # TODO: Replicate header across all sub tables if the first row is a header
     def split_tables_horizontally(self, df):
-        headers = df.iloc[0]
-        df = df.drop(df.index[0]).reset_index(drop=True)
+        top_header = df.iloc[0]
+
         nr_of_cols = []
         for row in df.iterrows():
             index, data = row
@@ -88,8 +130,40 @@ class Result(object):
             end = list(index)[1]
             if df.iloc[start:start + 1].shape[0] > 0:
                 dfs.append(df.iloc[start:start + 1].iat[0, 0])
-            dfs.append(pd.DataFrame(df.iloc[start + 1:end].values, columns=headers))
+            data = df.iloc[start + 1:end].values
 
+            if(len(data) == 0):
+                pass
+            else:
+                data_df = pd.DataFrame(data)
+
+                data_df = data_df.dropna(axis=1, how='all')
+
+                a = data_df.values
+                b = []
+                for i in a:
+                    c = []
+                    for j in i:
+                        if j == '':
+                            j = float('nan')
+                        c.append(j)
+                    b.append(c)
+
+                data_df = pd.DataFrame(b).dropna(axis=1, how='all')
+
+                first_row = list(data_df.iloc[0])
+                if self.is_header(first_row) and len(list(filter(lambda x: x == '', list(first_row)))) == 0:
+                    headers = data_df.iloc[0]
+                elif self.is_header(top_header):
+                    headers = top_header
+                else:
+                    headers = None
+
+                if headers is None or len(list(filter(lambda x: x != '', list(headers)))) != data_df.shape[1]:
+                    dfs.append(data_df)
+                else:
+                    data_df.columns = headers
+                    dfs.append(data_df.iloc[1:])
         return dfs
 
     def split_tables(self, data):
@@ -111,7 +185,7 @@ class Result(object):
         output = lines[0]
         for (i, j) in sliding:
             if (i.endswith('.') and (len(j) == 0 or j[0].isupper())) or j.startswith(u'\u2022')\
-                    or self.is_new_line(i, max_length) or self.is_new_line(j, max_length):
+                    or self.is_new_line(i, max_length) or self.is_new_line(j, max_length) or j[0].isupper():
                 output = output + '\n' + j
             else:
                 output = output + ' ' + j
@@ -121,7 +195,6 @@ class Result(object):
         html = ''
         if isinstance(data, pd.DataFrame):
             header = list(data.columns)
-            # dict_output = [dict(zip(header, i)) for i in data.as_matrix(header)]
             data = pd.DataFrame(list(filter(lambda i: ''.join(map(lambda x: str(x), i)) != '', data.as_matrix(header))), columns=header)
             html = html + self.create_df_html(data, True)
         else:
@@ -139,3 +212,19 @@ class Result(object):
             else:
                 html = html + self.to_html_util(i)
         return html
+
+    def to_json(self):
+        output = []
+        for i in self.output:
+            if isinstance(i, pd.DataFrame):
+                for df in self.split_tables(i):
+                    if isinstance(df, pd.DataFrame):
+                        header = list(df.columns)
+                        std_headers = self.header(header)
+                        entity_headers = list(map(lambda y: y[0], (filter(lambda x: x[1] != '', std_headers))))
+                        new_columns = list(map(lambda y: y[1] + '(' + y[0] + ')', (filter(lambda x: x[1] != '', std_headers))))
+                        if(len(entity_headers) > 0):
+                            new_df = df[entity_headers]
+                            new_df.columns = new_columns
+                            output.extend(new_df.to_dict('records'))
+        return json.dumps(output)
