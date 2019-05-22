@@ -280,6 +280,8 @@ class Stream(BaseParser):
 
     def _generate_table_bbox(self):
         self.textedges = []
+        if self.table_areas == 'full':
+            self.table_areas = ['0.0,' + str(self.pdf_height) + ',' + str(self.pdf_width) + ',0.0']
         if self.table_areas is None:
             hor_text = self.horizontal_text
             if self.table_regions is not None:
