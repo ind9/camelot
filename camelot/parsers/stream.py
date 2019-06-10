@@ -12,7 +12,7 @@ from .base import BaseParser
 from ..core import TextEdges, Table
 from ..utils import (text_in_bbox, get_table_index, compute_accuracy,
                      compute_whitespace)
-
+from sklearn.covariance import EllipticEnvelope
 
 logger = logging.getLogger('camelot')
 
@@ -57,7 +57,7 @@ class Stream(BaseParser):
     """
     def __init__(self, table_regions=None, table_areas=None, columns=None, split_text=False,
                  flag_size=False, strip_text='', edge_tol=50, row_tol=2,
-                 column_tol=0, **kwargs):
+                 column_tol=0, run_outlier_logic=False, contamination=0.03, **kwargs):
         self.table_regions = table_regions
         self.table_areas = table_areas
         self.columns = columns
@@ -68,6 +68,8 @@ class Stream(BaseParser):
         self.edge_tol = edge_tol
         self.row_tol = row_tol
         self.column_tol = column_tol
+        self.run_outlier_logic = run_outlier_logic
+        self.contamination = contamination
 
     @staticmethod
     def _text_bbox(t_bbox):
@@ -196,7 +198,7 @@ class Stream(BaseParser):
         return rows
 
     @staticmethod
-    def _add_columns(cols, text, row_tol):
+    def _add_columns(cols, text, row_tol, col_tol, run_outlier_logic=False, contamination=0.01):
         """Adds columns to existing list by taking into account
         the text that lies outside the current column x-coordinates.
 
@@ -219,7 +221,11 @@ class Stream(BaseParser):
             elements = [len(r) for r in text]
             new_cols = [(t.x0, t.x1)
                         for r in text if len(r) == max(elements) for t in r]
-            cols.extend(Stream._merge_columns(sorted(new_cols)))
+            all_cols = [(t.x0, t.x1) for r in text for t in r]
+            if len(all_cols) > 2 and run_outlier_logic:
+                outlier_predictions = EllipticEnvelope(contamination=contamination).fit_predict(all_cols)
+                new_cols = [all_cols[i] for i, predict in enumerate(outlier_predictions) if predict == 1]
+            cols.extend(Stream._merge_columns(sorted(new_cols), col_tol))
         return cols
 
     @staticmethod
@@ -347,6 +353,9 @@ class Stream(BaseParser):
                     warnings.warn("No tables found in table area {}".format(
                         table_idx + 1))
             cols = [(t.x0, t.x1) for r in rows_grouped if len(r) == ncols for t in r]
+            if len(cols) > 2 and self.run_outlier_logic:
+                outlier_predictions = EllipticEnvelope(contamination=self.contamination).fit_predict(cols)
+                cols = [cols[i] for i, predict in enumerate(outlier_predictions) if predict == 1]
             cols = self._merge_columns(sorted(cols), column_tol=self.column_tol)
             inner_text = []
             for i in range(1, len(cols)):
@@ -359,7 +368,8 @@ class Stream(BaseParser):
                             for t in self.t_bbox[direction]
                             if t.x0 > cols[-1][1] or t.x1 < cols[0][0]]
             inner_text.extend(outer_text)
-            cols = self._add_columns(cols, inner_text, self.row_tol)
+            cols = self._add_columns(cols, inner_text, self.row_tol, self.column_tol,
+                                     self.run_outlier_logic, self.contamination)
             cols = self._join_columns(cols, text_x_min, text_x_max)
 
         return cols, rows
