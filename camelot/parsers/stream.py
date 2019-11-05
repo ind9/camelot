@@ -222,7 +222,8 @@ class Stream(BaseParser):
             new_cols = [(t.x0, t.x1)
                         for r in text if len(r) == max(elements) for t in r]
             all_cols = [(t.x0, t.x1) for r in text for t in r]
-            if len(all_cols) > 2 and run_outlier_logic:
+            all_cols_np_array = np.array(all_cols)
+            if len(np.unique(all_cols_np_array)) > 2 and run_outlier_logic:
                 outlier_predictions = EllipticEnvelope(contamination=contamination).fit_predict(all_cols)
                 new_cols = [all_cols[i] for i, predict in enumerate(outlier_predictions) if predict == 1]
             cols.extend(Stream._merge_columns(sorted(new_cols), col_tol))
