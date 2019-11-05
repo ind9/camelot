@@ -20,7 +20,7 @@ requires = [
     'openpyxl>=2.5.8',
     'pandas>=0.23.4',
     'pdfminer.six>=20170720',
-    'PyPDF2>=1.26.0'
+    '-e git+https://github.com/ind9/PyPDF2.git@BugFix#egg=PyPDF2_FIX'
 ]
 
 cv_requires = [
