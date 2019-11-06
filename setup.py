@@ -20,7 +20,7 @@ requires = [
     'openpyxl>=2.5.8',
     'pandas>=0.23.4',
     'pdfminer.six>=20170720',
-    'PyPDF2_FIX'
+    'PyPDF2>=1.27.0'  # bumped up version from forked repo
 ]
 
 cv_requires = [
@@ -56,7 +56,7 @@ def setup_package():
                     license=about['__license__'],
                     packages=find_packages(exclude=('tests',)),
                     install_requires=requires,
-                    dependency_links=['git+ssh://git@github.com/ind9/PyPDF2.git@BugFix#egg=PyPDF2_FIX-0'],
+                    dependency_links=['git+ssh://git@github.com/ind9/PyPDF2.git@BugFix#egg=PyPDF2-1.27.0-0'],
                     extras_require={
                         'all': all_requires,
                         'cv': cv_requires,
