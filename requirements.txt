@@ -1,4 +1,4 @@
--e git+https://github.com/ind9/PyPDF2.git@BugFix#egg=PyPDF2_FIX
+-e git+https://github.com/ind9/PyPDF2.git@BugFix#egg=PyPDF2-1.27.0
 click>=6.7
 matplotlib>=2.2.3
 numpy>=1.13.3
