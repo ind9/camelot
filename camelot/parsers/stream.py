@@ -438,6 +438,6 @@ class Stream(BaseParser):
             cols, rows = self._generate_columns_and_rows(table_idx, tk)
             table = self._generate_table(table_idx, cols, rows)
             table._bbox = tk
-            _tables.append(table)
+            _tables.append(((table._bbox, table.cells), table.df))
 
         return _tables

@@ -403,7 +403,7 @@ class Lattice(BaseParser):
             bbox = self._group_rows(bbox, 0.0)
             text_line_list = [' '.join([b.get_text().strip() for b in i]) for i in bbox]
             result.append((bbox, '\n'.join(text_line_list)))
-            result.append(table.df)
+            result.append(((table._bbox, table.cells), table.df))
             p_h = y1
         bbox = text_in_bbox((x1, 0.0, p_w, p_h), self.horizontal_text)
         bbox.sort(key=lambda x: (-x.y0, x.x0))
